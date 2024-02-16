@@ -52,17 +52,17 @@ def process_audio_file(audio_file, keywords):
     chunk_size_ms = 5000
     chunks = [audio[i:i + chunk_size_ms] for i in range(0, len(audio), chunk_size_ms)]
 
-    transcription = ""
+    results = []
     unrecognized_chunks_count = 0
 
-    with Pool() as pool:
-        results = pool.map(partial(process_audio_chunk, recognizer=recognizer), chunks)
-
-    for i, text in enumerate(results):
+    for i, chunk in enumerate(chunks):
+        text = process_audio_chunk(chunk, recognizer)
         if text:
-            transcription += text + " "
+            results.append(text)
         else:
             unrecognized_chunks_count += 1
+
+    transcription = " ".join(results)
 
     emails, phones, personal_account_detected = analyze_text_for_personal_details(transcription)
 
