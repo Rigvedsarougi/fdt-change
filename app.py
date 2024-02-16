@@ -26,12 +26,12 @@ def detect_keywords(input_text, keywords):
     keyword_presence = {keyword: bool(re.search(re.escape(keyword), input_text, re.IGNORECASE)) for keyword in keywords}
     return keyword_presence
 
-def process_audio_chunk(chunk, recognizer, language='en-US'):
+def process_audio_chunk(chunk, recognizer):
     try:
         chunk.export("temp.wav", format="wav")
         with sr.AudioFile("temp.wav") as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data, show_all=True, language=language)  
+            text = recognizer.recognize_google(audio_data, show_all=True, language='hi-IN') 
             if 'alternative' in text:
                 text = text['alternative'][0]['transcript']
             return text
@@ -39,70 +39,62 @@ def process_audio_chunk(chunk, recognizer, language='en-US'):
         logging.error(f"Error processing audio chunk: {e}")
         return ""
 
-def process_audio_file(audio_file, languages, keywords):
+def process_audio_file(audio_file, keywords):
     recognizer = sr.Recognizer()
+
+    with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
+        temp_audio_file.write(audio_file.read())
+
+    audio = AudioSegment.from_mp3(temp_audio_file.name)
+
+    chunk_size_ms = 5000
+    chunks = [audio[i:i + chunk_size_ms] for i in range(0, len(audio), chunk_size_ms)]
+
     results = []
-    
-    for language in languages:
-        # Save BytesIO to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
-            temp_audio_file.write(audio_file.read())
+    unrecognized_chunks_count = 0
 
-        # Load temporary file with pydub
-        audio = AudioSegment.from_mp3(temp_audio_file.name)
+    for i, chunk in enumerate(chunks):
+        text = process_audio_chunk(chunk, recognizer)
+        if text:
+            results.append(text)
+        else:
+            unrecognized_chunks_count += 1
 
-        chunk_size_ms = 5000
-        chunks = [audio[i:i + chunk_size_ms] for i in range(0, len(audio), chunk_size_ms)]
+    transcription = " ".join(results)
 
-        for i, chunk in enumerate(chunks):
-            text = process_audio_chunk(chunk, recognizer, language)
-            if text:
-                results.append((language, text))
+    emails, phones, personal_account_detected = analyze_text_for_personal_details(transcription)
 
-    transcriptions = {lang: " ".join([text for lang_, text in results if lang_ == lang]) for lang in languages}
-    
-    all_emails = []
-    all_phones = []
-    personal_account_detected = False
+    keyword_results = detect_keywords(transcription, keywords)
 
-    for language, transcription in transcriptions.items():
-        emails, phones, personal_account = analyze_text_for_personal_details(transcription)
-        all_emails.extend(emails)
-        all_phones.extend(phones)
-        personal_account_detected = personal_account_detected or personal_account
-
-    keyword_results = {}
-    for language, transcription in transcriptions.items():
-        keyword_results[language] = detect_keywords(transcription, keywords)
+    total_chunks = len(chunks)
+    percentage_unrecognized = (unrecognized_chunks_count / total_chunks) * 100 if total_chunks > 0 else 0
 
     result = {
         'File Name': audio_file.name,
-        'Transcriptions': transcriptions,
-        'Fraud Detection': {lang: 'Fraud detected' if any(keyword_results[lang].values()) else 'Not fraud detected' for lang in languages},
+        'Transcription': transcription,
+        'Fraud Detection': 'Fraud detected' if any(keyword_results.values()) else 'Not fraud detected',
         **keyword_results,
         'Personal Account Detection': 'Personal account detected' if personal_account_detected else 'Personal account not detected',
-        'Personal Details': {'Emails': all_emails, 'Phones': all_phones}
+        'Personal Details': {'Emails': emails, 'Phones': phones}
     }
 
     return result
 
-def process_audio_files(audio_files, languages, keywords):
+def process_audio_files(audio_files, keywords):
     results = []
 
     for audio_file in audio_files:
-        result = process_audio_file(audio_file, languages, keywords)
+        result = process_audio_file(audio_file, keywords)
         results.append(result)
 
     return results
 
 def main():
-    st.title("Multilingual Audio Fraud Detection")
+    st.title("Audio Fraud Detection")
 
     audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
 
-    languages = st.multiselect("Select Languages", options=["en-US", "hi-IN", "es-ES"], default=["en-US"])
-    
-    if audio_files and languages:
+    if audio_files:
         keywords = [
             'Global',
             'HANA',
@@ -110,7 +102,7 @@ def main():
             'Software'
         ]
 
-        results = process_audio_files(audio_files, languages, keywords)
+        results = process_audio_files(audio_files, keywords)
         result_df = pd.DataFrame(results)
         st.write(result_df)
         csv_data = result_df.to_csv(index=False).encode('utf-8')
