@@ -31,7 +31,7 @@ def process_audio_chunk(chunk, recognizer):
         chunk.export("temp.wav", format="wav")
         with sr.AudioFile("temp.wav") as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data, show_all=True, language='en-US') 
+            text = recognizer.recognize_google(audio_data, show_all=True, language='hi-IN') 
             if 'alternative' in text:
                 text = text['alternative'][0]['transcript']
             return text
