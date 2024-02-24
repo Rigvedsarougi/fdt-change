@@ -8,8 +8,12 @@ import speech_recognition as sr
 import streamlit as st
 import tempfile
 import logging
+from fastapi import FastAPI, File, UploadFile
+from starlette.responses import StreamingResponse
 
 logging.basicConfig(level=logging.DEBUG)
+
+app = FastAPI()
 
 def analyze_text_for_personal_details(text):
     email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
@@ -31,7 +35,7 @@ def process_audio_chunk(chunk, recognizer):
         chunk.export("temp.wav", format="wav")
         with sr.AudioFile("temp.wav") as source:
             audio_data = recognizer.record(source)
-            text = recognizer.recognize_google(audio_data, show_all=True, language='en-US') 
+            text = recognizer.recognize_google(audio_data, show_all=True, language='en-US')  # Adjust parameters
             if 'alternative' in text:
                 text = text['alternative'][0]['transcript']
             return text
@@ -42,9 +46,11 @@ def process_audio_chunk(chunk, recognizer):
 def process_audio_file(audio_file, keywords):
     recognizer = sr.Recognizer()
 
+    # Save BytesIO to a temporary file
     with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
-        temp_audio_file.write(audio_file.read())
+        temp_audio_file.write(audio_file.file.read())
 
+    # Load temporary file with pydub
     audio = AudioSegment.from_mp3(temp_audio_file.name)
 
     chunk_size_ms = 5000
@@ -70,7 +76,7 @@ def process_audio_file(audio_file, keywords):
     percentage_unrecognized = (unrecognized_chunks_count / total_chunks) * 100 if total_chunks > 0 else 0
 
     result = {
-        'File Name': audio_file.name,
+        'File Name': audio_file.filename,
         'Transcription': transcription,
         'Fraud Detection': 'Fraud detected' if any(keyword_results.values()) else 'Not fraud detected',
         **keyword_results,
@@ -89,29 +95,20 @@ def process_audio_files(audio_files, keywords):
 
     return results
 
-def main():
-    st.title("Audio Fraud Detection")
+@app.post("/audio-fraud-detection/")
+async def detect_fraud_from_audio(files: List[UploadFile] = File(...)):
+    keywords = [
+        'Global',
+        'HANA',
+        'Server',
+        'Software'
+    ]
 
-    audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
+    results = process_audio_files(files, keywords)
+    result_df = pd.DataFrame(results)
+    csv_data = result_df.to_csv(index=False).encode('utf-8')
 
-    if audio_files:
-        keywords = [
-            'Global',
-            'HANA',
-            'Server',
-            'Software'
-        ]
+    def generate_csv():
+        yield csv_data
 
-        results = process_audio_files(audio_files, keywords)
-        result_df = pd.DataFrame(results)
-        st.write(result_df)
-        csv_data = result_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download File",
-            data=csv_data,
-            file_name="audio_fraud_detection_results.csv",
-            key="download_button"
-        )
-
-if __name__ == "__main__":
-    main()
+    return StreamingResponse(generate_csv(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=audio_fraud_detection_results.csv"})
