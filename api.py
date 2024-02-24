@@ -3,6 +3,7 @@ import pandas as pd
 import speech_recognition as sr
 from pydub import AudioSegment
 import tempfile
+from typing import List
 import logging
 from fastapi import FastAPI, File, UploadFile
 from starlette.responses import StreamingResponse
