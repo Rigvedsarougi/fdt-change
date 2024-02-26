@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from app import process_audio_files
+from app import process_audio_files process_audio_chunk detect_keywords analyze_text_for_personal_details
 
 app = Flask(__name__)
 
