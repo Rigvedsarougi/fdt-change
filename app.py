@@ -78,25 +78,6 @@ def process_audio_file(audio_file, keywords):
 
     return result
 
-@st.experimental_singleton
-def main():
-    st.title("Audio Fraud Detection")
-
-    # Receive file uploads via POST request
-    audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
-
-    if audio_files:
-        keywords = [
-            'Global',
-            'HANA',
-            'Server',
-            'Software'
-        ]
-
-        results = process_audio_files(audio_files, keywords)
-        result_df = pd.DataFrame(results)
-        st.write(result_df.to_json())
-
 def process_audio_files(audio_files, keywords):
     results = []
 
@@ -106,5 +87,19 @@ def process_audio_files(audio_files, keywords):
 
     return results
 
-if __name__ == "__main__":
-    main()
+st.title("Audio Fraud Detection")
+
+# Receive file uploads via POST request
+audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
+
+if audio_files:
+    keywords = [
+        'Global',
+        'HANA',
+        'Server',
+        'Software'
+    ]
+
+    results = process_audio_files(audio_files, keywords)
+    result_df = pd.DataFrame(results)
+    st.write(result_df.to_json())
