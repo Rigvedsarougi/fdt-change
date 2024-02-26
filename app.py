@@ -11,7 +11,6 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Function to analyze text for personal details
 def analyze_text_for_personal_details(text):
     email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
     phone_pattern = re.compile(r'\b(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})\b')
@@ -23,12 +22,10 @@ def analyze_text_for_personal_details(text):
 
     return emails_found, phones_found, personal_account_detected
 
-# Function to detect keywords in text
 def detect_keywords(input_text, keywords):
     keyword_presence = {keyword: bool(re.search(re.escape(keyword), input_text, re.IGNORECASE)) for keyword in keywords}
     return keyword_presence
 
-# Function to process audio chunks
 def process_audio_chunk(chunk, recognizer):
     try:
         chunk.export("temp.wav", format="wav")
@@ -42,7 +39,6 @@ def process_audio_chunk(chunk, recognizer):
         logging.error(f"Error processing audio chunk: {e}")
         return ""
 
-# Function to process audio file
 def process_audio_file(audio_file, keywords):
     recognizer = sr.Recognizer()
 
@@ -86,7 +82,6 @@ def process_audio_file(audio_file, keywords):
 
     return result
 
-# Function to process audio files
 def process_audio_files(audio_files, keywords):
     results = []
 
@@ -96,7 +91,6 @@ def process_audio_files(audio_files, keywords):
 
     return results
 
-# Main function to serve the Streamlit app
 def main():
     st.title("Audio Fraud Detection")
 
@@ -120,26 +114,6 @@ def main():
             file_name="audio_fraud_detection_results.csv",
             key="download_button"
         )
-
-# Define API endpoints
-@st.experimental_memo
-def api_endpoint(audio_files, keywords):
-    if audio_files:
-        results = process_audio_files(audio_files, keywords)
-        result_df = pd.DataFrame(results)
-        return result_df.to_json()  # Return results as JSON
-
-# Main function to handle HTTP requests
-def handle_request(request):
-    audio_files = request.files.getlist("audio_files")
-    keywords = [
-        'Global',
-        'HANA',
-        'Server',
-        'Software'
-    ]
-    results_json = api_endpoint(audio_files, keywords)
-    return results_json
 
 if __name__ == "__main__":
     main()
