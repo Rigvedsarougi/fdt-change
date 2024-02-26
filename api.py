@@ -1,14 +1,12 @@
 from flask import Flask, request, jsonify
-from app import process_audio_files process_audio_chunk detect_keywords analyze_text_for_personal_details
+from app import process_audio_files
+import pandas as pd
 
 app = Flask(__name__)
 
-@app.route('/process_audio', methods=['POST'])
-def process_audio():
-    # Get audio files from request
-    audio_files = request.files.getlist('audio_files')
-
-    # Process audio files
+@app.route('/audio_fraud_detection', methods=['POST'])
+def audio_fraud_detection():
+    audio_files = request.files.getlist("audio_files")
     keywords = [
         'Global',
         'HANA',
@@ -16,8 +14,8 @@ def process_audio():
         'Software'
     ]
     results = process_audio_files(audio_files, keywords)
+    result_df = pd.DataFrame(results)
+    return result_df.to_json(orient="records")
 
-    return jsonify(results)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
