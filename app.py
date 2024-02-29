@@ -42,8 +42,12 @@ def process_audio_chunk(chunk, recognizer):
 def process_audio_file(audio_file, keywords):
     recognizer = sr.Recognizer()
 
+    # Save BytesIO to a temporary file
+    with tempfile.NamedTemporaryFile(delete=False) as temp_audio_file:
+        temp_audio_file.write(audio_file.read())
+
     # Load temporary file with pydub
-    audio = AudioSegment.from_file(audio_file)
+    audio = AudioSegment.from_mp3(temp_audio_file.name)
 
     chunk_size_ms = 5000
     chunks = [audio[i:i + chunk_size_ms] for i in range(0, len(audio), chunk_size_ms)]
@@ -87,19 +91,29 @@ def process_audio_files(audio_files, keywords):
 
     return results
 
-st.title("Audio Fraud Detection")
+def main():
+    st.title("Audio Fraud Detection")
 
-# Receive file uploads via POST request
-audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
+    audio_files = st.file_uploader("Upload MP3 audio files", type=["mp3"], accept_multiple_files=True)
 
-if audio_files:
-    keywords = [
-        'Global',
-        'HANA',
-        'Server',
-        'Software'
-    ]
+    if audio_files:
+        keywords = [
+            'Global',
+            'HANA',
+            'Server',
+            'Software'
+        ]
 
-    results = process_audio_files(audio_files, keywords)
-    result_df = pd.DataFrame(results)
-    st.write(result_df.to_json())
+        results = process_audio_files(audio_files, keywords)
+        result_df = pd.DataFrame(results)
+        st.write(result_df)
+        csv_data = result_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download File",
+            data=csv_data,
+            file_name="audio_fraud_detection_results.csv",
+            key="download_button"
+        )
+
+if __name__ == "__main__":
+    main()
